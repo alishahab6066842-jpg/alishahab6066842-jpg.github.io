@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Question {
   id: string;
@@ -63,6 +64,163 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
 
   const deleteQuestion = (id: string) => {
     setQuestions(questions.filter((q) => q.id !== id));
+  };
+
+  const parseBulkMCQs = (text: string) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    const newQuestions: Question[] = [];
+    let currentQ: Partial<Question> = {};
+    let options: string[] = [];
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.match(/^Q:/i)) {
+        if (currentQ.question_text && options.length >= 2) {
+          newQuestions.push({
+            id: crypto.randomUUID(),
+            question_text: currentQ.question_text,
+            question_type: "mcq",
+            options: options,
+            correct_answer: currentQ.correct_answer || "",
+            max_marks: currentQ.max_marks || 1,
+            slo_mappings: [],
+          });
+        }
+        currentQ = { question_text: trimmed.substring(2).trim() };
+        options = [];
+      } else if (trimmed.match(/^[A-D]:/i)) {
+        options.push(trimmed.substring(2).trim());
+      } else if (trimmed.match(/^Correct:/i)) {
+        const correctLetter = trimmed.substring(8).trim().toUpperCase();
+        const index = correctLetter.charCodeAt(0) - 65;
+        currentQ.correct_answer = options[index] || "";
+      } else if (trimmed.match(/^Marks:/i)) {
+        currentQ.max_marks = parseInt(trimmed.substring(6).trim()) || 1;
+      }
+    });
+
+    if (currentQ.question_text && options.length >= 2) {
+      newQuestions.push({
+        id: crypto.randomUUID(),
+        question_text: currentQ.question_text,
+        question_type: "mcq",
+        options: options,
+        correct_answer: currentQ.correct_answer || "",
+        max_marks: currentQ.max_marks || 1,
+        slo_mappings: [],
+      });
+    }
+
+    return newQuestions;
+  };
+
+  const parseBulkShortAnswer = (text: string) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    const newQuestions: Question[] = [];
+    let currentQ: Partial<Question> = {};
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.match(/^Q:/i)) {
+        if (currentQ.question_text && currentQ.correct_answer) {
+          newQuestions.push({
+            id: crypto.randomUUID(),
+            question_text: currentQ.question_text,
+            question_type: "short_answer",
+            correct_answer: currentQ.correct_answer,
+            max_marks: currentQ.max_marks || 1,
+            slo_mappings: [],
+          });
+        }
+        currentQ = { question_text: trimmed.substring(2).trim() };
+      } else if (trimmed.match(/^A:/i)) {
+        currentQ.correct_answer = trimmed.substring(2).trim();
+      } else if (trimmed.match(/^Marks:/i)) {
+        currentQ.max_marks = parseInt(trimmed.substring(6).trim()) || 1;
+      }
+    });
+
+    if (currentQ.question_text && currentQ.correct_answer) {
+      newQuestions.push({
+        id: crypto.randomUUID(),
+        question_text: currentQ.question_text,
+        question_type: "short_answer",
+        correct_answer: currentQ.correct_answer,
+        max_marks: currentQ.max_marks || 1,
+        slo_mappings: [],
+      });
+    }
+
+    return newQuestions;
+  };
+
+  const parseBulkTrueFalse = (text: string) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    const newQuestions: Question[] = [];
+    let currentQ: Partial<Question> = {};
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.match(/^Q:/i)) {
+        if (currentQ.question_text && currentQ.correct_answer) {
+          newQuestions.push({
+            id: crypto.randomUUID(),
+            question_text: currentQ.question_text,
+            question_type: "true_false",
+            correct_answer: currentQ.correct_answer,
+            max_marks: currentQ.max_marks || 1,
+            slo_mappings: [],
+          });
+        }
+        currentQ = { question_text: trimmed.substring(2).trim() };
+      } else if (trimmed.match(/^A:/i)) {
+        const answer = trimmed.substring(2).trim().toLowerCase();
+        currentQ.correct_answer = answer === "true" || answer === "t" ? "True" : "False";
+      } else if (trimmed.match(/^Marks:/i)) {
+        currentQ.max_marks = parseInt(trimmed.substring(6).trim()) || 1;
+      }
+    });
+
+    if (currentQ.question_text && currentQ.correct_answer) {
+      newQuestions.push({
+        id: crypto.randomUUID(),
+        question_text: currentQ.question_text,
+        question_type: "true_false",
+        correct_answer: currentQ.correct_answer,
+        max_marks: currentQ.max_marks || 1,
+        slo_mappings: [],
+      });
+    }
+
+    return newQuestions;
+  };
+
+  const handleBulkUpload = (type: "mcq" | "short_answer" | "true_false", text: string) => {
+    if (!text.trim()) {
+      toast.error("Please paste question content");
+      return;
+    }
+
+    let parsed: Question[] = [];
+    try {
+      if (type === "mcq") {
+        parsed = parseBulkMCQs(text);
+      } else if (type === "short_answer") {
+        parsed = parseBulkShortAnswer(text);
+      } else if (type === "true_false") {
+        parsed = parseBulkTrueFalse(text);
+      }
+
+      if (parsed.length === 0) {
+        toast.error("No valid questions found. Please check the format.");
+        return;
+      }
+
+      setQuestions([...questions, ...parsed]);
+      toast.success(`Added ${parsed.length} question(s)`);
+    } catch (error) {
+      toast.error("Error parsing questions. Please check the format.");
+    }
   };
 
   const updateSloMapping = (questionId: string, sloId: string, marks: number) => {
@@ -200,6 +358,112 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
                   Add Question
                 </Button>
               </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Bulk Upload Questions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload MCQs
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-2">
+                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                        <strong>Format:</strong>
+                        <pre className="mt-1">
+Q: Question text here?{'\n'}A: Option A{'\n'}B: Option B{'\n'}C: Option C{'\n'}D: Option D{'\n'}Correct: A{'\n'}Marks: 2{'\n\n'}Q: Next question...
+                        </pre>
+                      </div>
+                      <Textarea
+                        placeholder="Paste MCQ questions here..."
+                        className="min-h-[100px] font-mono text-xs"
+                        id="mcq-bulk"
+                      />
+                      <Button
+                        onClick={() => {
+                          const text = (document.getElementById("mcq-bulk") as HTMLTextAreaElement).value;
+                          handleBulkUpload("mcq", text);
+                          (document.getElementById("mcq-bulk") as HTMLTextAreaElement).value = "";
+                        }}
+                        size="sm"
+                      >
+                        Import MCQs
+                      </Button>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload Short Questions
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-2">
+                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                        <strong>Format:</strong>
+                        <pre className="mt-1">
+Q: Question text here?{'\n'}A: Answer here{'\n'}Marks: 2{'\n\n'}Q: Next question...
+                        </pre>
+                      </div>
+                      <Textarea
+                        placeholder="Paste short answer questions here..."
+                        className="min-h-[100px] font-mono text-xs"
+                        id="short-bulk"
+                      />
+                      <Button
+                        onClick={() => {
+                          const text = (document.getElementById("short-bulk") as HTMLTextAreaElement).value;
+                          handleBulkUpload("short_answer", text);
+                          (document.getElementById("short-bulk") as HTMLTextAreaElement).value = "";
+                        }}
+                        size="sm"
+                      >
+                        Import Short Questions
+                      </Button>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload True/False
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-2">
+                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                        <strong>Format:</strong>
+                        <pre className="mt-1">
+Q: Statement here{'\n'}A: True{'\n'}Marks: 1{'\n\n'}Q: Next statement...
+                        </pre>
+                      </div>
+                      <Textarea
+                        placeholder="Paste true/false questions here..."
+                        className="min-h-[100px] font-mono text-xs"
+                        id="tf-bulk"
+                      />
+                      <Button
+                        onClick={() => {
+                          const text = (document.getElementById("tf-bulk") as HTMLTextAreaElement).value;
+                          handleBulkUpload("true_false", text);
+                          (document.getElementById("tf-bulk") as HTMLTextAreaElement).value = "";
+                        }}
+                        size="sm"
+                      >
+                        Import True/False
+                      </Button>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </CardContent>
+              </Card>
 
               {questions.map((question, index) => (
                 <Card key={question.id}>
