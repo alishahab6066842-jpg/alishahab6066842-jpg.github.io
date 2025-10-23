@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, History } from "lucide-react";
+import { FileText, History, Target } from "lucide-react";
 import AvailableTestsTab from "./student/AvailableTestsTab";
 import TestHistoryTab from "./student/TestHistoryTab";
+import SLOReportStudent from "@/components/reports/SLOReportStudent";
 
 interface StudentDashboardProps {
   profile: any;
@@ -19,7 +20,7 @@ const StudentDashboard = ({ profile }: StudentDashboardProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="tests" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Available Tests
@@ -27,6 +28,10 @@ const StudentDashboard = ({ profile }: StudentDashboardProps) => {
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
             My Results
+          </TabsTrigger>
+          <TabsTrigger value="slo-report" className="flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            SLO Report
           </TabsTrigger>
         </TabsList>
 
@@ -36,6 +41,10 @@ const StudentDashboard = ({ profile }: StudentDashboardProps) => {
 
         <TabsContent value="history" className="space-y-4">
           <TestHistoryTab studentId={profile.id} />
+        </TabsContent>
+
+        <TabsContent value="slo-report" className="space-y-4">
+          <SLOReportStudent studentId={profile.id} />
         </TabsContent>
       </Tabs>
     </div>

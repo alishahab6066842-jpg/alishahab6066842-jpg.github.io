@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ interface AvailableTestsTabProps {
 }
 
 const AvailableTestsTab = ({ studentId }: AvailableTestsTabProps) => {
+  const navigate = useNavigate();
   const [assessments, setAssessments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +38,7 @@ const AvailableTestsTab = ({ studentId }: AvailableTestsTabProps) => {
   };
 
   const handleStartTest = (assessmentId: string) => {
-    toast.info("Test interface coming soon!");
+    navigate(`/test/${assessmentId}`);
   };
 
   if (loading) {

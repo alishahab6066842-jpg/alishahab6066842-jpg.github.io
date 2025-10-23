@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import CreateAssessmentDialog from "@/components/assessment/CreateAssessmentDialog";
 
 interface AssessmentsTabProps {
   teacherId: string;
@@ -16,6 +17,7 @@ const AssessmentsTab = ({ teacherId }: AssessmentsTabProps) => {
   const [assessments, setAssessments] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -60,11 +62,19 @@ const AssessmentsTab = ({ teacherId }: AssessmentsTabProps) => {
           <h3 className="text-2xl font-semibold">Assessments</h3>
           <p className="text-sm text-muted-foreground">Create and manage your assessments</p>
         </div>
-        <Button disabled={subjects.length === 0}>
+        <Button onClick={() => setDialogOpen(true)} disabled={subjects.length === 0}>
           <Plus className="mr-2 h-4 w-4" />
           New Assessment
         </Button>
       </div>
+
+      <CreateAssessmentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        subjects={subjects}
+        teacherId={teacherId}
+        onSuccess={fetchData}
+      />
 
       {subjects.length === 0 ? (
         <Card>
