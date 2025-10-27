@@ -203,6 +203,8 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
 
     let parsed: Question[] = [];
     try {
+      console.log("Parsing bulk upload:", type, "Text length:", text.length);
+      
       if (type === "mcq") {
         parsed = parseBulkMCQs(text);
       } else if (type === "short_answer") {
@@ -211,15 +213,18 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
         parsed = parseBulkTrueFalse(text);
       }
 
+      console.log("Parsed questions:", parsed);
+
       if (parsed.length === 0) {
-        toast.error("No valid questions found. Please check the format.");
+        toast.error("No valid questions found. Please check the format. Make sure to use 'Q:', 'A:', etc.");
         return;
       }
 
       setQuestions([...questions, ...parsed]);
-      toast.success(`Added ${parsed.length} question(s)`);
+      toast.success(`Successfully added ${parsed.length} question(s)!`);
     } catch (error) {
-      toast.error("Error parsing questions. Please check the format.");
+      console.error("Error parsing questions:", error);
+      toast.error("Error parsing questions. Check console for details.");
     }
   };
 
