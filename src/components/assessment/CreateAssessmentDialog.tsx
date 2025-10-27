@@ -67,132 +67,168 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
   };
 
   const parseBulkMCQs = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim());
-    const newQuestions: Question[] = [];
-    let currentQ: Partial<Question> = {};
-    let options: string[] = [];
+    const lines = text.split("\n").filter((line) => line.trim())
+    const newQuestions: Question[] = []
+    let currentQ: Partial<Question> = {}
+    let options: string[] = []
+    let currentCorrectLetter: string | null = null
 
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed.match(/^Q:/i)) {
-        if (currentQ.question_text && options.length >= 2) {
-          newQuestions.push({
-            id: crypto.randomUUID(),
-            question_text: currentQ.question_text,
-            question_type: "mcq",
-            options: options,
-            correct_answer: currentQ.correct_answer || "",
-            max_marks: currentQ.max_marks || 1,
-            slo_mappings: [],
-          });
-        }
-        currentQ = { question_text: trimmed.substring(2).trim() };
-        options = [];
-      } else if (trimmed.match(/^[A-D]:/i)) {
-        options.push(trimmed.substring(2).trim());
-      } else if (trimmed.match(/^Correct:/i)) {
-        const correctLetter = trimmed.substring(8).trim().toUpperCase();
-        const index = correctLetter.charCodeAt(0) - 65;
-        currentQ.correct_answer = options[index] || "";
-      } else if (trimmed.match(/^Marks:/i)) {
-        currentQ.max_marks = parseInt(trimmed.substring(6).trim()) || 1;
+    const pushCurrent = () => {
+      if (currentQ.question_text && options.length >= 2) {
+        const letterIndex = currentCorrectLetter
+          ? currentCorrectLetter.toUpperCase().charCodeAt(0) - 65
+          : -1
+        const correct = letterIndex >= 0 && letterIndex < options.length
+          ? options[letterIndex]
+          : (currentQ.correct_answer || "")
+
+        newQuestions.push({
+          id: crypto.randomUUID(),
+          question_text: currentQ.question_text,
+          question_type: "mcq",
+          options: [...options],
+          correct_answer: correct || "",
+          max_marks: currentQ.max_marks || 1,
+          slo_mappings: [],
+        })
       }
-    });
-
-    if (currentQ.question_text && options.length >= 2) {
-      newQuestions.push({
-        id: crypto.randomUUID(),
-        question_text: currentQ.question_text,
-        question_type: "mcq",
-        options: options,
-        correct_answer: currentQ.correct_answer || "",
-        max_marks: currentQ.max_marks || 1,
-        slo_mappings: [],
-      });
     }
 
-    return newQuestions;
+    lines.forEach((line) => {
+      const trimmed = line.trim()
+
+      // Match Q: or Q1: or Q1) or Q1.
+      if (/^Q\d*\s*[:.).]/i.test(trimmed) || /^Q\s*[:.).]/i.test(trimmed)) {
+        // Commit previous question if any
+        pushCurrent()
+        // Start new question
+        const qText = trimmed.replace(/^Q\d*\s*[:.).]/i, "").trim()
+        currentQ = { question_text: qText }
+        options = []
+        currentCorrectLetter = null
+        return
+      }
+
+      // Options: A:, A), A. (case-insensitive)
+      const optMatch = trimmed.match(/^([A-D])\s*[:.).]\s*(.+)$/i)
+      if (optMatch) {
+        const textPart = optMatch[2].trim()
+        options.push(textPart)
+        return
+      }
+
+      // Correct/Answer line: "Correct: C" or "Answer: B"
+      const correctMatch = trimmed.match(/^(Correct|Answer)\s*[:\-]\s*([A-D])/i)
+      if (correctMatch) {
+        currentCorrectLetter = correctMatch[2].toUpperCase()
+        return
+      }
+
+      // Marks line
+      const marksMatch = trimmed.match(/^Marks\s*[:\-\s]\s*(\d+)/i)
+      if (marksMatch) {
+        currentQ.max_marks = parseInt(marksMatch[1], 10) || 1
+        return
+      }
+    })
+
+    // Push last question
+    pushCurrent()
+
+    return newQuestions
   };
 
   const parseBulkShortAnswer = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim());
-    const newQuestions: Question[] = [];
-    let currentQ: Partial<Question> = {};
+    const lines = text.split("\n").filter((line) => line.trim())
+    const newQuestions: Question[] = []
+    let currentQ: Partial<Question> = {}
 
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed.match(/^Q:/i)) {
-        if (currentQ.question_text && currentQ.correct_answer) {
-          newQuestions.push({
-            id: crypto.randomUUID(),
-            question_text: currentQ.question_text,
-            question_type: "short_answer",
-            correct_answer: currentQ.correct_answer,
-            max_marks: currentQ.max_marks || 1,
-            slo_mappings: [],
-          });
-        }
-        currentQ = { question_text: trimmed.substring(2).trim() };
-      } else if (trimmed.match(/^A:/i)) {
-        currentQ.correct_answer = trimmed.substring(2).trim();
-      } else if (trimmed.match(/^Marks:/i)) {
-        currentQ.max_marks = parseInt(trimmed.substring(6).trim()) || 1;
+    const pushCurrent = () => {
+      if (currentQ.question_text && currentQ.correct_answer) {
+        newQuestions.push({
+          id: crypto.randomUUID(),
+          question_text: currentQ.question_text,
+          question_type: "short_answer",
+          correct_answer: currentQ.correct_answer,
+          max_marks: currentQ.max_marks || 1,
+          slo_mappings: [],
+        })
       }
-    });
-
-    if (currentQ.question_text && currentQ.correct_answer) {
-      newQuestions.push({
-        id: crypto.randomUUID(),
-        question_text: currentQ.question_text,
-        question_type: "short_answer",
-        correct_answer: currentQ.correct_answer,
-        max_marks: currentQ.max_marks || 1,
-        slo_mappings: [],
-      });
     }
 
-    return newQuestions;
+    lines.forEach((line) => {
+      const trimmed = line.trim()
+
+      if (/^Q\d*\s*[:.).]/i.test(trimmed) || /^Q\s*[:.).]/i.test(trimmed)) {
+        pushCurrent()
+        const qText = trimmed.replace(/^Q\d*\s*[:.).]/i, "").trim()
+        currentQ = { question_text: qText }
+        return
+      }
+
+      // Answer line: A:, Answer:, Ans:
+      const ansMatch = trimmed.match(/^(A|Answer|Ans)\s*[:\-]\s*(.+)$/i)
+      if (ansMatch) {
+        currentQ.correct_answer = ansMatch[2].trim()
+        return
+      }
+
+      const marksMatch = trimmed.match(/^Marks\s*[:\-\s]\s*(\d+)/i)
+      if (marksMatch) {
+        currentQ.max_marks = parseInt(marksMatch[1], 10) || 1
+        return
+      }
+    })
+
+    pushCurrent()
+    return newQuestions
   };
 
   const parseBulkTrueFalse = (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim());
-    const newQuestions: Question[] = [];
-    let currentQ: Partial<Question> = {};
+    const lines = text.split("\n").filter((line) => line.trim())
+    const newQuestions: Question[] = []
+    let currentQ: Partial<Question> = {}
 
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed.match(/^Q:/i)) {
-        if (currentQ.question_text && currentQ.correct_answer) {
-          newQuestions.push({
-            id: crypto.randomUUID(),
-            question_text: currentQ.question_text,
-            question_type: "true_false",
-            correct_answer: currentQ.correct_answer,
-            max_marks: currentQ.max_marks || 1,
-            slo_mappings: [],
-          });
-        }
-        currentQ = { question_text: trimmed.substring(2).trim() };
-      } else if (trimmed.match(/^A:/i)) {
-        const answer = trimmed.substring(2).trim().toLowerCase();
-        currentQ.correct_answer = answer === "true" || answer === "t" ? "True" : "False";
-      } else if (trimmed.match(/^Marks:/i)) {
-        currentQ.max_marks = parseInt(trimmed.substring(6).trim()) || 1;
+    const pushCurrent = () => {
+      if (currentQ.question_text && currentQ.correct_answer) {
+        newQuestions.push({
+          id: crypto.randomUUID(),
+          question_text: currentQ.question_text,
+          question_type: "true_false",
+          correct_answer: currentQ.correct_answer,
+          max_marks: currentQ.max_marks || 1,
+          slo_mappings: [],
+        })
       }
-    });
-
-    if (currentQ.question_text && currentQ.correct_answer) {
-      newQuestions.push({
-        id: crypto.randomUUID(),
-        question_text: currentQ.question_text,
-        question_type: "true_false",
-        correct_answer: currentQ.correct_answer,
-        max_marks: currentQ.max_marks || 1,
-        slo_mappings: [],
-      });
     }
 
-    return newQuestions;
+    lines.forEach((line) => {
+      const trimmed = line.trim()
+
+      if (/^Q\d*\s*[:.).]/i.test(trimmed) || /^Q\s*[:.).]/i.test(trimmed)) {
+        pushCurrent()
+        const qText = trimmed.replace(/^Q\d*\s*[:.).]/i, "").trim()
+        currentQ = { question_text: qText }
+        return
+      }
+
+      // Answer line: A:, Answer:
+      const ansMatch = trimmed.match(/^(A|Answer)\s*[:\-]\s*(.+)$/i)
+      if (ansMatch) {
+        const val = ansMatch[2].trim().toLowerCase()
+        currentQ.correct_answer = ["true", "t", "yes", "y"].includes(val) ? "True" : "False"
+        return
+      }
+
+      const marksMatch = trimmed.match(/^Marks\s*[:\-\s]\s*(\d+)/i)
+      if (marksMatch) {
+        currentQ.max_marks = parseInt(marksMatch[1], 10) || 1
+        return
+      }
+    })
+
+    pushCurrent()
+    return newQuestions
   };
 
   const handleBulkUpload = (type: "mcq" | "short_answer" | "true_false", text: string) => {
