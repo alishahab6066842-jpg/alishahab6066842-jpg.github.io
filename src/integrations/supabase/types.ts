@@ -261,6 +261,48 @@ export type Database = {
           },
         ]
       }
+      student_reports: {
+        Row: {
+          generated_at: string | null
+          generated_by: string
+          id: string
+          report_data: Json | null
+          report_path: string
+          student_id: string
+        }
+        Insert: {
+          generated_at?: string | null
+          generated_by: string
+          id?: string
+          report_data?: Json | null
+          report_path: string
+          student_id: string
+        }
+        Update: {
+          generated_at?: string | null
+          generated_by?: string
+          id?: string
+          report_data?: Json | null
+          report_path?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_reports_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_reports_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           created_at: string
