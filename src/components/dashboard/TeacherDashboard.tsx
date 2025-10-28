@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, FileText, Target, BarChart } from "lucide-react";
+import { BookOpen, FileText, Target, BarChart, Clock } from "lucide-react";
 import SubjectsTab from "./teacher/SubjectsTab";
 import AssessmentsTab from "./teacher/AssessmentsTab";
 import SLOsTab from "./teacher/SLOsTab";
 import SLOReportTeacher from "@/components/reports/SLOReportTeacher";
+import { LiveTestsTab } from "./teacher/LiveTestsTab";
 
 interface TeacherDashboardProps {
   profile: any;
@@ -21,7 +22,7 @@ const TeacherDashboard = ({ profile }: TeacherDashboardProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="subjects" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
             Subjects
@@ -33,6 +34,10 @@ const TeacherDashboard = ({ profile }: TeacherDashboardProps) => {
           <TabsTrigger value="assessments" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Assessments
+          </TabsTrigger>
+          <TabsTrigger value="live-tests" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Live Tests
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <BarChart className="h-4 w-4" />
@@ -50,6 +55,10 @@ const TeacherDashboard = ({ profile }: TeacherDashboardProps) => {
 
         <TabsContent value="assessments" className="space-y-4">
           <AssessmentsTab teacherId={profile.id} />
+        </TabsContent>
+
+        <TabsContent value="live-tests" className="space-y-4">
+          <LiveTestsTab teacherId={profile.id} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">

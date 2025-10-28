@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { CountdownTimer } from "@/components/test/CountdownTimer";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const TakeTest = () => {
   const { assessmentId } = useParams();
@@ -19,10 +21,27 @@ const TakeTest = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [studentId, setStudentId] = useState<string>("");
+  const [sessionId, setSessionId] = useState<string>("");
+  const [hasStarted, setHasStarted] = useState(false);
+  const [testAvailable, setTestAvailable] = useState(true);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     fetchTestData();
   }, [assessmentId]);
+
+  useEffect(() => {
+    if (!hasStarted || !sessionId) return;
+
+    const heartbeat = setInterval(async () => {
+      await supabase
+        .from('test_sessions')
+        .update({ last_heartbeat: new Date().toISOString() })
+        .eq('id', sessionId);
+    }, 10000);
+
+    return () => clearInterval(heartbeat);
+  }, [hasStarted, sessionId]);
 
   const fetchTestData = async () => {
     try {
@@ -43,6 +62,21 @@ const TakeTest = () => {
 
       setAssessment(assessmentRes.data);
       setQuestions(questionsRes.data);
+
+      // Check if test is live and if it's time-restricted
+      if (assessmentRes.data.is_live) {
+        const now = new Date();
+        const startTime = assessmentRes.data.start_time ? new Date(assessmentRes.data.start_time) : null;
+        const endTime = assessmentRes.data.end_time ? new Date(assessmentRes.data.end_time) : null;
+
+        if (startTime && now < startTime) {
+          setTestAvailable(false);
+          toast.error(`Test starts at ${startTime.toLocaleString()}`);
+        } else if (endTime && now > endTime) {
+          setTestAvailable(false);
+          toast.error("Test has ended");
+        }
+      }
     } catch (error) {
       console.error("Error fetching test:", error);
       toast.error("Failed to load test");
@@ -52,9 +86,35 @@ const TakeTest = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (Object.keys(answers).length !== questions.length) {
+  const startTest = async () => {
+    try {
+      const { data: session, error } = await supabase
+        .from('test_sessions')
+        .insert({
+          assessment_id: assessmentId,
+          student_id: studentId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSessionId(session.id);
+      setHasStarted(true);
+      toast.success("Test started! Good luck!");
+    } catch (error) {
+      console.error("Error starting test:", error);
+      toast.error("Failed to start test");
+    }
+  };
+
+  const handleSubmit = async (isAutoSubmit = false) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
+    if (!isAutoSubmit && Object.keys(answers).length !== questions.length) {
       toast.error("Please answer all questions before submitting");
+      submittingRef.current = false;
       return;
     }
 
@@ -134,13 +194,25 @@ const TakeTest = () => {
         }
       }
 
-      toast.success("Test submitted successfully!");
+      // Update session
+      if (sessionId) {
+        await supabase
+          .from('test_sessions')
+          .update({ 
+            submitted_at: new Date().toISOString(),
+            is_active: false 
+          })
+          .eq('id', sessionId);
+      }
+
+      toast.success(isAutoSubmit ? "Time expired - test submitted automatically!" : "Test submitted successfully!");
       navigate("/dashboard");
     } catch (error) {
       console.error("Error submitting test:", error);
       toast.error("Failed to submit test");
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -152,23 +224,73 @@ const TakeTest = () => {
     );
   }
 
+  if (!testAvailable) {
+    return (
+      <div className="container max-w-4xl py-8">
+        <Alert variant="destructive">
+          <Clock className="h-4 w-4" />
+          <AlertDescription>
+            This test is not currently available. Please check the start and end times.
+          </AlertDescription>
+        </Alert>
+        <Button variant="ghost" onClick={() => navigate("/dashboard")} className="mt-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
+  if (!hasStarted && assessment?.is_live) {
+    return (
+      <div className="container max-w-4xl py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>{assessment.title}</CardTitle>
+            <CardDescription>
+              Subject: {assessment.subjects?.name} | Duration: {assessment.duration_minutes} minutes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                This is a timed test. Once you start, you will have {assessment.duration_minutes} minutes to complete it.
+                The test will auto-submit when time expires.
+              </AlertDescription>
+            </Alert>
+            <div className="flex gap-4">
+              <Button onClick={startTest} size="lg">Start Test</Button>
+              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="container max-w-4xl py-8">
-      <Button variant="ghost" onClick={() => navigate("/dashboard")} className="mb-4">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Dashboard
-      </Button>
+    <div className="container max-w-6xl py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3 space-y-6">
+          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>{assessment.title}</CardTitle>
-          <CardDescription>
-            Subject: {assessment.subjects?.name} | Total Marks: {assessment.total_marks}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{assessment.title}</CardTitle>
+              <CardDescription>
+                Subject: {assessment.subjects?.name} | Total Marks: {assessment.total_marks}
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
-      <div className="space-y-6">
+          <div className="space-y-6">
         {questions.map((question, index) => (
           <Card key={question.id}>
             <CardHeader>
@@ -204,13 +326,24 @@ const TakeTest = () => {
             </CardContent>
           </Card>
         ))}
-      </div>
+          </div>
 
-      <div className="mt-6 flex justify-end">
-        <Button onClick={handleSubmit} disabled={submitting} size="lg">
-          {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Submit Test
-        </Button>
+          <div className="flex justify-end">
+            <Button onClick={() => handleSubmit(false)} disabled={submitting} size="lg">
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Test
+            </Button>
+          </div>
+        </div>
+
+        {assessment?.is_live && assessment.end_time && (
+          <div className="lg:col-span-1">
+            <CountdownTimer 
+              endTime={assessment.end_time} 
+              onExpire={() => handleSubmit(true)} 
+            />
+          </div>
+        )}
       </div>
     </div>
   );

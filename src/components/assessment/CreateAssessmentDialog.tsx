@@ -36,6 +36,9 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
   const [subjectId, setSubjectId] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [slos, setSlos] = useState<any[]>([]);
+  const [isLive, setIsLive] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState<number>(60);
+  const [startTime, setStartTime] = useState<string>("");
 
   const handleSubjectChange = async (value: string) => {
     setSubjectId(value);
@@ -299,6 +302,10 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
     setLoading(true);
     try {
       const totalMarks = questions.reduce((sum, q) => sum + q.max_marks, 0);
+      const endTime = isLive && startTime 
+        ? new Date(new Date(startTime).getTime() + durationMinutes * 60000).toISOString()
+        : null;
+
       const { data: assessment, error: assessmentError } = await supabase
         .from("assessments")
         .insert({
@@ -307,6 +314,10 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
           teacher_id: teacherId,
           total_marks: totalMarks,
           is_published: true,
+          is_live: isLive,
+          duration_minutes: isLive ? durationMinutes : null,
+          start_time: isLive && startTime ? new Date(startTime).toISOString() : null,
+          end_time: endTime,
         })
         .select()
         .single();
@@ -348,6 +359,9 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
       setTitle("");
       setSubjectId("");
       setQuestions([]);
+      setIsLive(false);
+      setDurationMinutes(60);
+      setStartTime("");
     } catch (error) {
       console.error("Error creating assessment:", error);
       toast.error("Failed to create assessment");
@@ -384,6 +398,44 @@ const CreateAssessmentDialog = ({ open, onOpenChange, subjects, teacherId, onSuc
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isLive"
+                checked={isLive}
+                onChange={(e) => setIsLive(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="isLive" className="font-semibold">Enable Live Timed Test</Label>
+            </div>
+
+            {isLive && (
+              <div className="space-y-4 pl-6">
+                <div>
+                  <Label htmlFor="duration">Duration (minutes)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min="1"
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 60)}
+                    placeholder="60"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="startTime">Start Time</Label>
+                  <Input
+                    id="startTime"
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {subjectId && slos.length === 0 && (

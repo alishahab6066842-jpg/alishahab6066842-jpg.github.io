@@ -17,8 +17,12 @@ export type Database = {
       assessments: {
         Row: {
           created_at: string
+          duration_minutes: number | null
+          end_time: string | null
           id: string
+          is_live: boolean | null
           is_published: boolean
+          start_time: string | null
           subject_id: string
           teacher_id: string
           title: string
@@ -27,8 +31,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          duration_minutes?: number | null
+          end_time?: string | null
           id?: string
+          is_live?: boolean | null
           is_published?: boolean
+          start_time?: string | null
           subject_id: string
           teacher_id: string
           title: string
@@ -37,8 +45,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          duration_minutes?: number | null
+          end_time?: string | null
           id?: string
+          is_live?: boolean | null
           is_published?: boolean
+          start_time?: string | null
           subject_id?: string
           teacher_id?: string
           title?: string
@@ -325,6 +337,54 @@ export type Database = {
           },
           {
             foreignKeyName: "test_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_sessions: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_heartbeat: string
+          started_at: string
+          student_id: string
+          submitted_at: string | null
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_heartbeat?: string
+          started_at?: string
+          student_id: string
+          submitted_at?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_heartbeat?: string
+          started_at?: string
+          student_id?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_sessions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_sessions_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
