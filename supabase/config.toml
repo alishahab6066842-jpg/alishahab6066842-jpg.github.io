@@ -1,1 +1,7 @@
 project_id = "aliykntpierzesplibnb"
+
+[functions.generate-student-report]
+verify_jwt = true
+
+[functions.generate-practice]
+verify_jwt = false
