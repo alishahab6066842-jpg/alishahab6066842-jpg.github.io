@@ -1,18 +1,17 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, History, Target, FileBarChart, Bot } from "lucide-react";
+import { FileText, History, Target, FileBarChart } from "lucide-react";
 import AvailableTestsTab from "./student/AvailableTestsTab";
 import TestHistoryTab from "./student/TestHistoryTab";
 import SLOReportStudent from "@/components/reports/SLOReportStudent";
 import ReportsTab from "./student/ReportsTab";
-import AITutorTab from "./student/AITutorTab";
 
 interface StudentDashboardProps {
   profile: any;
 }
 
 const StudentDashboard = ({ profile }: StudentDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("tutor");
+  const [activeTab, setActiveTab] = useState("tests");
 
   return (
     <div className="space-y-6">
@@ -22,11 +21,7 @@ const StudentDashboard = ({ profile }: StudentDashboardProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="tutor" className="flex items-center gap-2">
-            <Bot className="h-4 w-4" />
-            AI Tutor
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tests" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Available Tests
@@ -44,10 +39,6 @@ const StudentDashboard = ({ profile }: StudentDashboardProps) => {
             Progress Reports
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="tutor" className="space-y-4">
-          <AITutorTab studentId={profile.id} studentName={profile.full_name} />
-        </TabsContent>
 
         <TabsContent value="tests" className="space-y-4">
           <AvailableTestsTab studentId={profile.id} />
