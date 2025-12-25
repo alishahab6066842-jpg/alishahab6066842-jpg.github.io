@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap, BookOpen, Target, TrendingUp } from "lucide-react";
 
 const Index = () => {
+  console.log("Index component rendering...");
   const navigate = useNavigate();
 
   useEffect(() => {
